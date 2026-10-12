@@ -415,7 +415,7 @@ static CMSampleBufferRef _create_buffer(CMSampleBufferRef original) {
             NSDictionary *prefs = [[NSUserDefaults standardUserDefaults]
                 persistentDomainForName:@"com.murkaska.virtualcampro"];
             if (prefs[@"enabled"] != nil) _a9x = [prefs[@"enabled"] boolValue];
-            NSString *sourceURL = prefs[@"streamURL"];
+            NSString *sourceURL = prefs[@"streamURL"]; // Matches prefs/Resources/Root.plist
             if ([sourceURL isKindOfClass:[NSString class]] && sourceURL.length > 0) {
                 _b7k = [sourceURL copy];
             }
