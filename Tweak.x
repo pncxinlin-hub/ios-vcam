@@ -373,60 +373,8 @@ static CMSampleBufferRef _create_buffer(CMSampleBufferRef original) {
     return (status == noErr) ? sampleBuffer : NULL;
 }
 
-%hook AVCaptureVideoDataOutput
-
-- (void)setSampleBufferDelegate:(id<AVCaptureVideoDataOutputSampleBufferDelegate>)delegate
-                          queue:(dispatch_queue_t)queue {
-    if (!_a9x || !delegate) {
-        %orig;
-        return;
-    }
-    _init_stream();
-
-    Class delegateClass = object_getClass(delegate);
-    NSString *className = NSStringFromClass(delegateClass);
-    SEL selector = @selector(captureOutput:didOutputSampleBuffer:fromConnection:);
-
-    @synchronized(_f8q) {
-        if (!_f8q[className]) {
-            Method method = class_getInstanceMethod(delegateClass, selector);
-            if (method) {
-                const char *typeEncoding = method_getTypeEncoding(method);
-                IMP originalIMP = method_getImplementation(method);
-                _f8q[className] = [NSValue valueWithPointer:originalIMP];
-
-                __block NSString *cachedClassName = className;
-                IMP replacementIMP = imp_implementationWithBlock(^(id target,
-                                                                   AVCaptureOutput *output,
-                                                                   CMSampleBufferRef sampleBuffer,
-                                                                   AVCaptureConnection *connection) {
-                    CMSampleBufferRef modifiedBuffer = NULL;
-                    if (_a9x) modifiedBuffer = _create_buffer(sampleBuffer);
-                    CMSampleBufferRef finalBuffer = modifiedBuffer ? modifiedBuffer : sampleBuffer;
-
-                    IMP cachedIMP = NULL;
-                    @synchronized(_f8q) {
-                        NSValue *impValue = _f8q[cachedClassName];
-                        if (impValue) cachedIMP = (IMP)[impValue pointerValue];
-                    }
-                    if (cachedIMP) {
-                        ((void(*)(id, SEL, AVCaptureOutput *, CMSampleBufferRef, AVCaptureConnection *))cachedIMP)
-                            (target, selector, output, finalBuffer, connection);
-                    }
-                    if (modifiedBuffer) CFRelease(modifiedBuffer);
-                });
-
-                BOOL methodAdded = class_addMethod(delegateClass, selector, replacementIMP, typeEncoding);
-                if (!methodAdded) {
-                    method_setImplementation(method, replacementIMP);
-                }
-            }
-        }
-    }
-    %orig;
-}
-
-%end
+// Diagnostic: disable AVCaptureVideoDataOutput hook to isolate Logos translation failure.
+// This temporarily disables the primary capture delegate interception path.
 
 %hook AVSampleBufferDisplayLayer
 
