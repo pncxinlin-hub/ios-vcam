@@ -445,34 +445,9 @@ static CMSampleBufferRef _create_buffer(CMSampleBufferRef original) {
 
 %end
 
-%hook NSObject
+// Temporarily disabled legacy AVCapturePhotoOutput delegate hook for build isolation.
+// Other camera/video hooks remain unchanged.
 
-- (void)captureOutput:(AVCapturePhotoOutput *)output
-        didFinishProcessingPhotoSampleBuffer:(CMSampleBufferRef)photoSampleBuffer
-        previewPhotoSampleBuffer:(CMSampleBufferRef)previewSampleBuffer
-        resolvedSettings:(AVCaptureResolvedPhotoSettings *)resolvedSettings
-        bracketSettings:(AVCaptureBracketedStillImageSettings *)bracketSettings
-        error:(NSError *)error {
-    if (!_a9x || error) { %orig; return; }
-
-    CMSampleBufferRef modifiedPhoto = _create_buffer(photoSampleBuffer);
-    CMSampleBufferRef modifiedPreview = _create_buffer(previewSampleBuffer);
-
-    if (modifiedPhoto || modifiedPreview) {
-        %orig(output,
-              modifiedPhoto ? modifiedPhoto : photoSampleBuffer,
-              modifiedPreview ? modifiedPreview : previewSampleBuffer,
-              resolvedSettings,
-              bracketSettings,
-              error);
-        if (modifiedPhoto) CFRelease(modifiedPhoto);
-        if (modifiedPreview) CFRelease(modifiedPreview);
-        return;
-    }
-    %orig;
-}
-
-%end
 
 %hook AVCapturePhoto
 
