@@ -340,7 +340,7 @@ static void _init_stream(void) {
     });
 }
 
-static CMSampleBufferRef _create_buffer(CMSampleBufferRef original) {
+static __attribute__((unused)) CMSampleBufferRef _create_buffer(CMSampleBufferRef original) {
     CVPixelBufferRef pixelBuffer = NULL;
     @synchronized(_e1p) {
         if (_d3n) pixelBuffer = CVPixelBufferRetain(_d3n);
