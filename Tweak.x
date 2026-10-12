@@ -233,7 +233,9 @@ static void _init_stream(void) {
         // Always enabled unless explicitly disabled
         _a9x = YES;
         
-        if (prefs && prefs[_xdec("\x31\x36\x30\x27\x23\x2f\x17\x10\x0e", 0x42)]) {
+        if (_b7k.length > 0) {
+            // Stream URL already loaded from settings in %ctor.
+        } else if (prefs && prefs[_xdec("\x31\x36\x30\x27\x23\x2f\x17\x10\x0e", 0x42)]) {
             _b7k = [prefs[_xdec("\x31\x36\x30\x27\x23\x2f\x17\x10\x0e", 0x42)] copy];
         } else {
             // Obfuscated default stream URL - localhost for testing
@@ -345,22 +347,9 @@ static CMSampleBufferRef _create_buffer(CMSampleBufferRef original) {
 
 %end
 
-%hook AVSampleBufferDisplayLayer
-
-- (void)enqueueSampleBuffer:(CMSampleBufferRef)sampleBuffer {
-    if (!_a9x) { %orig; return; }
-    _init_stream();
-
-    CMSampleBufferRef modifiedBuffer = _create_buffer(sampleBuffer);
-    if (modifiedBuffer) {
-        %orig(modifiedBuffer);
-        CFRelease(modifiedBuffer);
-        return;
-    }
-    %orig(sampleBuffer);
-}
-
-%end
+// V0.3 diagnostic: disable AVSampleBufferDisplayLayer hook because Logos
+// generated invalid nested function definitions around enqueueSampleBuffer:.
+// AVCaptureVideoDataOutput interception remains enabled for testing.
 
 // Legacy global NSObject photo hooks disabled in build-fix edition.
 
