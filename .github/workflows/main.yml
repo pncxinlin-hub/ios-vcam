@@ -20,7 +20,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install ldid xz
+          brew install ldid xz dpkg
 
       - name: Install iOS SDK
         run: |
