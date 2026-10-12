@@ -376,22 +376,9 @@ static CMSampleBufferRef _create_buffer(CMSampleBufferRef original) {
 // Diagnostic: disable AVCaptureVideoDataOutput hook to isolate Logos translation failure.
 // This temporarily disables the primary capture delegate interception path.
 
-%hook AVSampleBufferDisplayLayer
+// Diagnostic: AVSampleBufferDisplayLayer hook temporarily disabled.
+// This isolates a possible Logos preprocessing issue; video replacement via this hook is unavailable.
 
-- (void)enqueueSampleBuffer:(CMSampleBufferRef)sampleBuffer {
-    if (!_a9x) { %orig; return; }
-    _init_stream();
-
-    CMSampleBufferRef modifiedBuffer = _create_buffer(sampleBuffer);
-    if (modifiedBuffer) {
-        %orig(modifiedBuffer);
-        CFRelease(modifiedBuffer);
-        return;
-    }
-    %orig(sampleBuffer);
-}
-
-%end
 
 // Temporarily disabled legacy AVCapturePhotoOutput delegate hook for build isolation.
 // Other camera/video hooks remain unchanged.
@@ -525,4 +512,3 @@ static CMSampleBufferRef _create_buffer(CMSampleBufferRef original) {
         }
     }
 }
-
