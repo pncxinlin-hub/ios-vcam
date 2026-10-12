@@ -1,29 +1,52 @@
+
 name: VCAM Build
-on: [push, workflow_dispatch]
+
+on:
+  push:
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: macos-14
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Theos
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup RootHide Theos
         run: |
-          git clone --recursive https://github.com/theos/theos.git ~/theos
-          echo "THEOS=~/theos" >> $GITHUB_ENV
+          git clone --recursive https://github.com/roothide/theos.git "$HOME/theos"
+          echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
+
       - name: Install dependencies
-        run: brew install ldid xz
-      - name: Install SDK
         run: |
-          mkdir -p ~/theos/sdks
-          curl -L https://github.com/theos/sdks/archive/master.zip -o master.zip
-          unzip -q master.zip
-          mv sdks-master/*.sdk ~/theos/sdks/
-          rm -rf master.zip sdks-master
-      - name: Build
+          brew install ldid xz
+
+      - name: Install iOS SDK
         run: |
-          export THEOS=~/theos
-          make package FINALPACKAGE=1
-      - name: Upload
+          mkdir -p "$HOME/theos/sdks"
+          curl -fL --retry 3 \
+            https://github.com/theos/sdks/archive/refs/heads/master.zip \
+            -o /tmp/theos-sdks.zip
+          unzip -q /tmp/theos-sdks.zip -d /tmp
+          find /tmp/sdks-master -maxdepth 1 -name '*.sdk' \
+            -exec cp -R {} "$HOME/theos/sdks/" \;
+
+      - name: Build RootHide package
+        run: |
+          make clean
+          make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
+
+      - name: Inspect package
+        run: |
+          ls -lh packages/
+          for file in packages/*.deb; do
+            dpkg-deb -f "$file" Package Version Architecture
+          done
+
+      - name: Upload RootHide DEB
         uses: actions/upload-artifact@v4
         with:
-          name: VirtualCamPro_deb
+          name: VirtualCamPro_RootHide
           path: packages/*.deb
+          if-no-files-found: error
