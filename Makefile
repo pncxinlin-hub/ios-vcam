@@ -1,4 +1,5 @@
-THEOS_PACKAGE_SCHEME = rootless
+
+THEOS_PACKAGE_SCHEME = roothide
 TARGET = iphone:clang:latest:14.0
 ARCHS = arm64 arm64e
 
@@ -15,4 +16,3 @@ SUBPROJECTS += prefs
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 include $(THEOS_MAKE_PATH)/aggregate.mk
-
