@@ -34,7 +34,7 @@ static BOOL _initialized = NO;
 
 // ======================== ANTI-DEBUGGING ========================
 
-static void _check_debugger(void) {
+static __attribute__((unused)) void _check_debugger(void) {
     int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()};
     struct kinfo_proc info = {0};
     size_t size = sizeof(info);
