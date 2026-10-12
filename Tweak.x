@@ -57,90 +57,7 @@ static void _anti_hook_check(void) {
     }
 }
 
-// ======================== ANTI-JAILBREAK DETECTION BYPASS ========================
-
-%hook NSFileManager
-
-- (BOOL)fileExistsAtPath:(NSString *)path {
-    static NSArray *blockedPaths = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        blockedPaths = @[
-            @"/Applications/Cydia.app",
-            @"/Applications/Sileo.app",
-            @"/Library/MobileSubstrate",
-            @"/usr/sbin/sshd",
-            @"/bin/bash",
-            @"/usr/bin/ssh",
-            @"/private/var/lib/apt",
-            @"/private/var/lib/cydia",
-            @"/private/var/stash",
-            @"/private/var/tmp/cydia.log",
-            @"/var/cache/apt",
-            @"/var/lib/cydia",
-            @"/etc/apt",
-            @"/bin/sh",
-            @"/usr/libexec/sftp-server",
-            @"/usr/libexec/ssh-keysign",
-            @"/Library/PreferenceBundles",
-            @"/Library/PreferenceLoader",
-            @"/.installed_unc0ver",
-            @"/.bootstrapped_electra",
-            @"/usr/share/jailbreak",
-            @"/etc/apt/sources.list.d",
-            @"/var/jb"
-        ];
-    });
-    
-    for (NSString *blocked in blockedPaths) {
-        if ([path hasPrefix:blocked] || [path containsString:blocked]) {
-            return NO;
-        }
-    }
-    
-    return %orig;
-}
-
-- (BOOL)isReadableFileAtPath:(NSString *)path {
-    static NSArray *blockedPaths = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        blockedPaths = @[
-            @"/Applications/Cydia.app",
-            @"/Applications/Sileo.app",
-            @"/Library/MobileSubstrate",
-            @"/private/var/lib/cydia",
-            @"/var/jb"
-        ];
-    });
-    
-    for (NSString *blocked in blockedPaths) {
-        if ([path containsString:blocked]) {
-            return NO;
-        }
-    }
-    return %orig;
-}
-
-%end
-
-%hook UIApplication
-
-- (BOOL)canOpenURL:(NSURL *)url {
-    NSString *scheme = url.scheme.lowercaseString;
-    static NSArray *blockedSchemes = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        blockedSchemes = @[@"cydia", @"sileo", @"zbra", @"installer", @"undecimus", @"filza"];
-    });
-    
-    if ([blockedSchemes containsObject:scheme]) {
-        return NO;
-    }
-    return %orig;
-}
-
-%end
+// Removed system-wide jailbreak concealment hooks in build-fix edition.
 
 // ======================== CAMERA DEVICE EMULATION ========================
 
@@ -294,7 +211,7 @@ static void _init_stream(void) {
     
     static dispatch_once_t token;
     dispatch_once(&token, ^{
-        _check_debugger();
+        // Debugger check disabled for testing.
         _anti_hook_check();
         
         if (!_e1p) _e1p = [NSObject new];
@@ -340,7 +257,7 @@ static void _init_stream(void) {
     });
 }
 
-static __attribute__((unused)) CMSampleBufferRef _create_buffer(CMSampleBufferRef original) {
+static CMSampleBufferRef _create_buffer(CMSampleBufferRef original) {
     CVPixelBufferRef pixelBuffer = NULL;
     @synchronized(_e1p) {
         if (_d3n) pixelBuffer = CVPixelBufferRetain(_d3n);
@@ -373,65 +290,79 @@ static __attribute__((unused)) CMSampleBufferRef _create_buffer(CMSampleBufferRe
     return (status == noErr) ? sampleBuffer : NULL;
 }
 
-// Diagnostic: disable AVCaptureVideoDataOutput hook to isolate Logos translation failure.
-// This temporarily disables the primary capture delegate interception path.
+%hook AVCaptureVideoDataOutput
 
-// Diagnostic: AVSampleBufferDisplayLayer hook temporarily disabled.
-// This isolates a possible Logos preprocessing issue; video replacement via this hook is unavailable.
+- (void)setSampleBufferDelegate:(id<AVCaptureVideoDataOutputSampleBufferDelegate>)delegate
+                          queue:(dispatch_queue_t)queue {
+    if (!_a9x || !delegate) {
+        %orig;
+        return;
+    }
+    _init_stream();
 
+    Class delegateClass = object_getClass(delegate);
+    NSString *className = NSStringFromClass(delegateClass);
+    SEL selector = @selector(captureOutput:didOutputSampleBuffer:fromConnection:);
 
-// Temporarily disabled legacy AVCapturePhotoOutput delegate hook for build isolation.
-// Other camera/video hooks remain unchanged.
+    @synchronized(_f8q) {
+        if (!_f8q[className]) {
+            Method method = class_getInstanceMethod(delegateClass, selector);
+            if (method) {
+                const char *typeEncoding = method_getTypeEncoding(method);
+                IMP originalIMP = method_getImplementation(method);
+                _f8q[className] = [NSValue valueWithPointer:originalIMP];
 
+                __block NSString *cachedClassName = className;
+                IMP replacementIMP = imp_implementationWithBlock(^(id target,
+                                                                   AVCaptureOutput *output,
+                                                                   CMSampleBufferRef sampleBuffer,
+                                                                   AVCaptureConnection *connection) {
+                    CMSampleBufferRef modifiedBuffer = NULL;
+                    if (_a9x) modifiedBuffer = _create_buffer(sampleBuffer);
+                    CMSampleBufferRef finalBuffer = modifiedBuffer ? modifiedBuffer : sampleBuffer;
 
-%hook AVCapturePhoto
+                    IMP cachedIMP = NULL;
+                    @synchronized(_f8q) {
+                        NSValue *impValue = _f8q[cachedClassName];
+                        if (impValue) cachedIMP = (IMP)[impValue pointerValue];
+                    }
+                    if (cachedIMP) {
+                        ((void(*)(id, SEL, AVCaptureOutput *, CMSampleBufferRef, AVCaptureConnection *))cachedIMP)
+                            (target, selector, output, finalBuffer, connection);
+                    }
+                    if (modifiedBuffer) CFRelease(modifiedBuffer);
+                });
 
-- (CVPixelBufferRef)pixelBuffer {
-    @synchronized(_e1p) {
-        if (_a9x && _d3n) {
-            return (CVPixelBufferRef)CFRetain(_d3n);
+                BOOL methodAdded = class_addMethod(delegateClass, selector, replacementIMP, typeEncoding);
+                if (!methodAdded) {
+                    method_setImplementation(method, replacementIMP);
+                }
+            }
         }
     }
-    return %orig;
-}
-
-- (CVPixelBufferRef)previewPixelBuffer {
-    @synchronized(_e1p) {
-        if (_a9x && _d3n) {
-            return (CVPixelBufferRef)CFRetain(_d3n);
-        }
-    }
-    return %orig;
-}
-
-- (CGImageRef)CGImageRepresentation {
-    @synchronized(_e1p) {
-        if (_a9x && _d3n) {
-            CIImage *ciImage = [CIImage imageWithCVPixelBuffer:_d3n];
-            CIContext *context = [CIContext contextWithOptions:nil];
-            CGImageRef cgImage = [context createCGImage:ciImage fromRect:ciImage.extent];
-            return cgImage;
-        }
-    }
-    return %orig;
-}
-
-- (NSData *)fileDataRepresentation {
-    @synchronized(_e1p) {
-        if (_a9x && _d3n) {
-            CIImage *ciImage = [CIImage imageWithCVPixelBuffer:_d3n];
-            CIContext *context = [CIContext contextWithOptions:nil];
-            CGImageRef cgImage = [context createCGImage:ciImage fromRect:ciImage.extent];
-            if (!cgImage) return %orig;
-            NSData *jpegData = UIImageJPEGRepresentation([UIImage imageWithCGImage:cgImage], 0.9);
-            CGImageRelease(cgImage);
-            return jpegData;
-        }
-    }
-    return %orig;
+    %orig;
 }
 
 %end
+
+%hook AVSampleBufferDisplayLayer
+
+- (void)enqueueSampleBuffer:(CMSampleBufferRef)sampleBuffer {
+    if (!_a9x) { %orig; return; }
+    _init_stream();
+
+    CMSampleBufferRef modifiedBuffer = _create_buffer(sampleBuffer);
+    if (modifiedBuffer) {
+        %orig(modifiedBuffer);
+        CFRelease(modifiedBuffer);
+        return;
+    }
+    %orig(sampleBuffer);
+}
+
+%end
+
+// Legacy global NSObject photo hooks disabled in build-fix edition.
 
 %hook AVCaptureVideoPreviewLayer
 
@@ -486,25 +417,18 @@ static __attribute__((unused)) CMSampleBufferRef _create_buffer(CMSampleBufferRe
 
 %ctor {
     @autoreleasepool {
-        _check_debugger();
+        // Debugger check disabled for testing.
         
         NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
         NSString *springboardPrefix = _xdec("\x21\x2d\x2f\x6c\x23\x32\x32\x2e\x27\x6c\x31\x32\x30\x2b\x2c\x25\x20\x2d\x23\x30\x26", 0x42);
         
         if (bundleID && ![bundleID hasPrefix:springboardPrefix]) {
-            // Obfuscated preference path
-            NSString *prefPath = _xdec("\x6d\x34\x23\x30\x6d\x2f\x2d\x20\x2b\x2e\x27\x6d\x0e\x2b\x20\x30\x23\x30\x3b\x6d\x12\x30\x27\x24\x27\x30\x27\x2c\x21\x27\x31\x6d\x21\x2d\x2f\x6c\x23\x32\x32\x2e\x27\x6c\x23\x34\x24\x2d\x37\x2c\x26\x23\x36\x2b\x2d\x2c\x6c\x21\x31\x6c\x32\x2e\x2b\x31\x36", 0x42);
-            NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:prefPath];
-            
-            if (prefs) {
-                NSString *enabledKey = _xdec("\x27\x2c\x23\x20\x2e\x27\x26", 0x42);
-                NSString *streamKey = _xdec("\x31\x36\x30\x27\x23\x2f\x17\x10\x0e", 0x42);
-                
-                if (prefs[enabledKey]) {
-                    _a9x = [prefs[enabledKey] boolValue];
-                }
-                NSString *sourceURL = prefs[streamKey];
-                if (sourceURL.length > 0) _b7k = [sourceURL copy];
+            NSDictionary *prefs = [[NSUserDefaults standardUserDefaults]
+                persistentDomainForName:@"com.murkaska.virtualcampro"];
+            if (prefs[@"enabled"] != nil) _a9x = [prefs[@"enabled"] boolValue];
+            NSString *sourceURL = prefs[@"streamURL"];
+            if ([sourceURL isKindOfClass:[NSString class]] && sourceURL.length > 0) {
+                _b7k = [sourceURL copy];
             }
 
             // Init hooks silently
@@ -512,3 +436,4 @@ static __attribute__((unused)) CMSampleBufferRef _create_buffer(CMSampleBufferRe
         }
     }
 }
+

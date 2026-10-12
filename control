@@ -1,9 +1,9 @@
-Package: com.apple.avfoundation.camerasupport
-Name: AVFoundation Camera Extension
-Depends: mobilesubstrate, preferenceloader
-Version: 14.8.3
+Package: com.pncxinlin.virtualcampro
+Name: VirtualCamPro (Experimental)
+Depends: firmware (>= 14.0), preferenceloader
+Version: 0.2.0
 Architecture: iphoneos-arm64
-Description: Core camera support extension for AVFoundation framework
-Maintainer: Apple Inc.
-Author: Apple Inc.
-Section: System
+Description: Experimental virtual camera tweak, for testing only
+Maintainer: Project Maintainer
+Author: Community Project
+Section: Tweaks
