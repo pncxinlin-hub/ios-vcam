@@ -1,3 +1,4 @@
+
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -26,13 +27,13 @@
             <key>cell</key>
             <string>PSEditTextCell</string>
             <key>default</key>
-            <string>rtsp://192.168.1.44:554/live</string>
+            <string></string>
             <key>defaults</key>
             <string>com.murkaska.virtualcampro</string>
             <key>key</key>
-            <string>rtspURL</string>
+            <string>streamURL</string>
             <key>label</key>
-            <string>RTSP URL</string>
+            <string>Stream URL (HLS/HTTP)</string>
         </dict>
         <dict>
             <key>cell</key>
